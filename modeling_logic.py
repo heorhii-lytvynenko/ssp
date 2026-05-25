@@ -26,6 +26,10 @@ class ModelingLogic:
     @staticmethod
     def build(segment, samplerate, order=12, hidden=16, epochs=120, lr=0.02):
         sig = to_mono(segment)
+        # Keep modeling responsive when a very long segment is selected in the UI.
+        max_samples = 24000
+        if len(sig) > max_samples:
+            sig = sig[:max_samples]
         if len(sig) < order + 5:
             return {
                 "mode": "modeling",

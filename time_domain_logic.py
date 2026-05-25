@@ -48,6 +48,14 @@ def normalized_autocorrelation(signal):
     return lags, ac_pos
 
 
+def _select_short_analysis_segment(signal, samplerate, max_ms=30.0):
+    max_len = max(1, int(round(samplerate * max_ms / 1000.0)))
+    if len(signal) <= max_len:
+        return signal
+    start = (len(signal) - max_len) // 2
+    return signal[start : start + max_len]
+
+
 def estimate_f0_from_autocorr(lags, ac_pos, samplerate, fmin=50.0, fmax=500.0):
     min_lag = max(1, int(np.floor(samplerate / fmax)))
     max_lag = min(len(ac_pos) - 1, int(np.ceil(samplerate / fmin)))
@@ -72,7 +80,10 @@ class TimeDomainLogic:
         frame_zcr = compute_zero_crossing_rate(frames)
         frame_times_ms = frame_starts / samplerate * 1000.0
 
-        ac_lags, ac_values = normalized_autocorrelation(mono_signal)
+        # For F0/autocorrelation we intentionally use a short segment (lab requirement: 15-25 ms).
+        # This also keeps computation responsive even when the selected range is long.
+        ac_signal = _select_short_analysis_segment(mono_signal, samplerate=samplerate, max_ms=30.0)
+        ac_lags, ac_values = normalized_autocorrelation(ac_signal)
         ac_lags_ms = ac_lags / samplerate * 1000.0
         f0_hz, f0_lag, f0_peak = estimate_f0_from_autocorr(ac_lags, ac_values, samplerate)
         f0_lag_ms = (f0_lag / samplerate * 1000.0) if f0_lag is not None else None

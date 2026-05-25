@@ -159,17 +159,33 @@ class SegmentPlotter:
         ax_cep.set_ylabel("Cepstrum")
         ax_cep.grid(True)
 
-        im = ax_spg.pcolormesh(
-            result["spectrogram_time_ms"],
-            result["spectrogram_freq_khz"],
-            result["spectrogram_db"],
-            shading="auto",
-            cmap="magma",
-        )
-        ax_spg.set_title("Spectrogram (Full Signal)")
-        ax_spg.set_xlabel("Time (ms)")
-        ax_spg.set_ylabel("Frequency (kHz)")
-        self.fig.colorbar(im, ax=ax_spg, orientation="vertical", pad=0.01)
+        sp_err = result.get("spectrogram_error")
+        sp_t = result["spectrogram_time_ms"]
+        sp_f = result["spectrogram_freq_khz"]
+        sp_db = result["spectrogram_db"]
+        if sp_err is not None or len(sp_t) == 0 or len(sp_f) == 0 or sp_db.size == 0:
+            ax_spg.text(0.05, 0.5, f"Spectrogram unavailable:\n{sp_err or 'no data'}", fontsize=10)
+            ax_spg.set_title("Spectrogram (Full Signal)")
+            ax_spg.set_xlabel("Time (ms)")
+            ax_spg.set_ylabel("Frequency (kHz)")
+            ax_spg.grid(True)
+        else:
+            im = ax_spg.imshow(
+                sp_db,
+                aspect="auto",
+                origin="lower",
+                cmap="magma",
+                extent=[
+                    float(sp_t[0]),
+                    float(sp_t[-1]),
+                    float(sp_f[0]),
+                    float(sp_f[-1]),
+                ],
+            )
+            ax_spg.set_title("Spectrogram (Full Signal)")
+            ax_spg.set_xlabel("Time (ms)")
+            ax_spg.set_ylabel("Frequency (kHz)")
+            self.fig.colorbar(im, ax=ax_spg, orientation="vertical", pad=0.01)
 
         self.fig.tight_layout()
         self.canvas.draw()

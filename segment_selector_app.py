@@ -74,32 +74,35 @@ class GraphicRepresentation:
         self._plot_segment()
 
     def _plot_segment(self):
-        # Get the currently selected segment range from the UI.
-        s_ms, e_ms, start_sample, end_sample = parse_segment_bounds(
-            start_text=self.ui.start_entry.get(),
-            end_text=self.ui.end_entry.get(),
-            total_ms=self.total_ms,
-            samplerate=self.samplerate,
-        )
-        segment = self.data[start_sample:end_sample]
-        quality = self.ui.quality_var.get()
-        max_points = self.quality_options[quality]
+        try:
+            # Get the currently selected segment range from the UI.
+            s_ms, e_ms, start_sample, end_sample = parse_segment_bounds(
+                start_text=self.ui.start_entry.get(),
+                end_text=self.ui.end_entry.get(),
+                total_ms=self.total_ms,
+                samplerate=self.samplerate,
+            )
+            segment = self.data[start_sample:end_sample]
+            quality = self.ui.quality_var.get()
+            max_points = self.quality_options[quality]
 
-        logic_result = self._build_logic_result(
-            selected_view=self.ui.view_var.get(),
-            segment=segment,
-            start_sample=start_sample,
-            end_sample=end_sample,
-            quality=quality,
-            max_points=max_points,
-        )
+            logic_result = self._build_logic_result(
+                selected_view=self.ui.view_var.get(),
+                segment=segment,
+                start_sample=start_sample,
+                end_sample=end_sample,
+                quality=quality,
+                max_points=max_points,
+            )
 
-        self.plotter.draw(logic_result, start_ms=s_ms, end_ms=e_ms)
+            self.plotter.draw(logic_result, start_ms=s_ms, end_ms=e_ms)
 
-        if start_sample > 0 or end_sample < len(self.data):
-            self.ui.save_btn.config(state=tk.NORMAL)
-        else:
-            self.ui.save_btn.config(state=tk.DISABLED)
+            if start_sample > 0 or end_sample < len(self.data):
+                self.ui.save_btn.config(state=tk.NORMAL)
+            else:
+                self.ui.save_btn.config(state=tk.DISABLED)
+        except Exception as exc:
+            messagebox.showerror(MSGBOX_TITLE_ERROR, f"Plot failed:\n{exc}")
 
     def _build_logic_result(self, selected_view, segment, start_sample, end_sample, quality, max_points):
         if selected_view == "Time Domain":
@@ -129,15 +132,17 @@ class GraphicRepresentation:
                 segment=segment,
                 samplerate=self.samplerate,
             )
-        return PlotViewLogic.build(
-            segment=segment,
-            start_sample=start_sample,
-            end_sample=end_sample,
-            samplerate=self.samplerate,
-            quality=quality,
-            max_points=max_points,
-            separate_channels=self.ui.separate_var.get(),
-        )
+        if selected_view == "Plot":
+            return PlotViewLogic.build(
+                segment=segment,
+                start_sample=start_sample,
+                end_sample=end_sample,
+                samplerate=self.samplerate,
+                quality=quality,
+                max_points=max_points,
+                separate_channels=self.ui.separate_var.get(),
+            )
+        raise ValueError(f"Unknown view selected: {selected_view}")
 
     def save_segment(self):
         # Reuse the same helper to get exact segment boundaries for saving.

@@ -22,7 +22,8 @@ def _magnitude_spectrum_db(segment, samplerate):
 def _real_cepstrum(segment, samplerate):
     spectrum = np.fft.rfft(segment)
     log_mag = np.log(np.maximum(np.abs(spectrum), 1e-12))
-    cep = np.fft.irfft(log_mag)
+    # Keep cepstrum length equal to the original segment length.
+    cep = np.fft.irfft(log_mag, n=len(segment))
     quef_ms = np.arange(len(cep), dtype=float) / samplerate * 1000.0
     return quef_ms, cep
 
@@ -71,6 +72,8 @@ def _spectrogram(signal, samplerate, frame_ms=20.0, overlap_ratio=0.5):
 
 
 class FrequencyDomainLogic:
+    _spectrogram_cache = {}
+
     @staticmethod
     def build(segment, full_signal, samplerate, quality, max_points):
         mono_seg = to_mono(segment)
@@ -92,7 +95,19 @@ class FrequencyDomainLogic:
         f0_ac_hz, f0_ac_lag, _ = estimate_f0_from_autocorr(ac_lags, ac_vals, samplerate)
         f0_ac_ms = (f0_ac_lag / samplerate * 1000.0) if f0_ac_lag is not None else None
 
-        sp_t_ms, sp_f_khz, sp_db = _spectrogram(mono_full, samplerate)
+        spectrogram_error = None
+        try:
+            cache_key = (len(mono_full), float(np.mean(mono_full[: min(len(mono_full), 200)])), samplerate)
+            if cache_key in FrequencyDomainLogic._spectrogram_cache:
+                sp_t_ms, sp_f_khz, sp_db = FrequencyDomainLogic._spectrogram_cache[cache_key]
+            else:
+                sp_t_ms, sp_f_khz, sp_db = _spectrogram(mono_full, samplerate)
+                FrequencyDomainLogic._spectrogram_cache[cache_key] = (sp_t_ms, sp_f_khz, sp_db)
+        except Exception as exc:
+            sp_t_ms = np.array([], dtype=float)
+            sp_f_khz = np.array([], dtype=float)
+            sp_db = np.zeros((1, 1), dtype=float)
+            spectrogram_error = str(exc)
 
         seg_time_ms, mono_seg_plot = downsample_xy(seg_time_ms, mono_seg, quality=quality, max_points=max_points)
         spec_freq_khz, spec_db = downsample_xy(spec_freq_khz, spec_db, quality=quality, max_points=max_points)
@@ -114,4 +129,5 @@ class FrequencyDomainLogic:
             "spectrogram_time_ms": sp_t_ms,
             "spectrogram_freq_khz": sp_f_khz,
             "spectrogram_db": sp_db,
+            "spectrogram_error": spectrogram_error,
         }
